@@ -44,7 +44,7 @@ Vagrant.configure(2) do |config|
        vb.cpus = get_cpu_setting(host)
     end
     config.vm.provider "docker" do |docker|
-      docker.image = "tknerr/baseimage-ubuntu:14.04"
+      docker.image = "tknerr/baseimage-ubuntu:16.04"
       docker.has_ssh = true
       docker.remains_running = false
     end

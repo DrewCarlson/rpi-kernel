@@ -11,9 +11,9 @@ BUILD_USER=vagrant
 BUILD_GROUP=vagrant
 BUILD_ROOT=/var/kernel_build
 BUILD_CACHE=$BUILD_ROOT/cache
-ARM_TOOLS=$BUILD_CACHE/tools
 LINUX_KERNEL=$BUILD_CACHE/linux-kernel
-LINUX_KERNEL_COMMIT=36612d5d7a88672a3e7dd6cb458dbbbca0d75efe # Linux 4.14.79 raspberrypi-kernel_1.20181112-1
+LINUX_KERNEL_COMMIT=6f921e98008589258f97243fb6658d09750f0a2f # Linux 4.14.79 raspberrypi-kernel_1.20220331-1
+# LINUX_KERNEL_COMMIT=36612d5d7a88672a3e7dd6cb458dbbbca0d75efe # Linux 4.14.79 raspberrypi-kernel_1.20181112-1
 # LINUX_KERNEL_COMMIT=675e29ff7124059cb3b8b56fd7ae0ea131196982 # Linux 4.14.70 raspberrypi-kernel_1.20180919-1
 # LINUX_KERNEL_COMMIT=f70eae405b5d75f7c41ea300b9f790656f99a203 # Linux 4.14.34
 # LINUX_KERNEL_COMMIT=be97febf4aa42b1d019ad24e7948739da8557f66 # Linux 4.9.80
@@ -47,23 +47,20 @@ NEW_VERSION=`date +%Y%m%d-%H%M%S`
 
 BUILD_RESULTS=$BUILD_ROOT/results/kernel-$NEW_VERSION
 
-X64_CROSS_COMPILE_CHAIN=arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64
-
 declare -A CCPREFIX
-CCPREFIX["rpi1"]=$ARM_TOOLS/$X64_CROSS_COMPILE_CHAIN/bin/arm-linux-gnueabihf-
-CCPREFIX["rpi2_3"]=$ARM_TOOLS/$X64_CROSS_COMPILE_CHAIN/bin/arm-linux-gnueabihf-
+CCPREFIX["rpi2_3"]=aarch64-linux-gnu-
 
 declare -A ORIGDEFCONFIG
-ORIGDEFCONFIG["rpi1"]=bcmrpi_defconfig
-ORIGDEFCONFIG["rpi2_3"]=bcm2709_defconfig
+#ORIGDEFCONFIG["rpi1"]=bcmrpi_defconfig
+ORIGDEFCONFIG["rpi2_3"]=bcmrpi3_defconfig
 
 declare -A DEFCONFIG
-DEFCONFIG["rpi1"]=rpi1_docker_defconfig
+#DEFCONFIG["rpi1"]=rpi1_docker_defconfig
 DEFCONFIG["rpi2_3"]=rpi2_3_docker_defconfig
 
 declare -A IMAGE_NAME
-IMAGE_NAME["rpi1"]=kernel.img
-IMAGE_NAME["rpi2_3"]=kernel7.img
+#IMAGE_NAME["rpi1"]=kernel.img
+IMAGE_NAME["rpi2_3"]=kernel8.img
 
 function create_dir_for_build_user () {
     local target_dir=$1
@@ -73,7 +70,7 @@ function create_dir_for_build_user () {
 }
 
 function setup_build_dirs () {
-  for dir in $BUILD_ROOT $BUILD_CACHE $BUILD_RESULTS $ARM_TOOLS $LINUX_KERNEL $RASPBERRY_FIRMWARE; do
+  for dir in $BUILD_ROOT $BUILD_CACHE $BUILD_RESULTS $LINUX_KERNEL $RASPBERRY_FIRMWARE; do
     create_dir_for_build_user $dir
   done
 }
@@ -82,32 +79,28 @@ function clone_or_update_repo_for () {
   local repo_url=$1
   local repo_path=$2
   local repo_commit=$3
+  local extra=$4
 
   if [ ! -z "${repo_commit}" ]; then
     rm -rf $repo_path
   fi
   if [ -d ${repo_path}/.git ]; then
     pushd $repo_path
-    git reset --hard HEAD
-    git pull
+    #git reset --hard HEAD
+    #git pull
     popd
   else
     echo "Cloning $repo_path with commit $repo_commit"
-    git clone $repo_url $repo_path
+    git clone $repo_url $repo_path --depth 1 $extra
     if [ ! -z "${repo_commit}" ]; then
       cd $repo_path && git checkout -qf ${repo_commit}
     fi
   fi
 }
 
-function setup_arm_cross_compiler_toolchain () {
-  echo "### Check if Raspberry Pi Crosscompiler repository at ${ARM_TOOLS} is still up to date"
-  clone_or_update_repo_for 'https://github.com/raspberrypi/tools.git' $ARM_TOOLS ""
-}
-
 function setup_linux_kernel_sources () {
   echo "### Check if Raspberry Pi Linux Kernel repository at ${LINUX_KERNEL} is still up to date"
-  clone_or_update_repo_for 'https://github.com/raspberrypi/linux.git' $LINUX_KERNEL $LINUX_KERNEL_COMMIT
+  clone_or_update_repo_for 'https://github.com/raspberrypi/linux.git' $LINUX_KERNEL $LINUX_KERNEL_COMMIT "-b 1.20220331"
   echo "### Cleaning .version file for deb packages"
   rm -f $LINUX_KERNEL/.version
 }
@@ -119,7 +112,6 @@ function setup_rpi_firmware () {
 
 function prepare_kernel_building () {
   setup_build_dirs
-  setup_arm_cross_compiler_toolchain
   setup_linux_kernel_sources
   setup_rpi_firmware
 }
@@ -141,39 +133,39 @@ create_kernel_for () {
   echo "### git commit id of this kernel build is ${KERNEL_COMMIT}"
 
   # clean build artifacts
-  make ARCH=arm clean
+  make ARCH=arm64 clean
 
   # copy kernel configuration file over
-  cp $LINUX_KERNEL/arch/arm/configs/${ORIGDEFCONFIG[${PI_VERSION}]} $LINUX_KERNEL/arch/arm/configs/${DEFCONFIG[${PI_VERSION}]}
-  cat $LINUX_KERNEL_CONFIGS/docker_delta_defconfig >> $LINUX_KERNEL/arch/arm/configs/${DEFCONFIG[${PI_VERSION}]}
+  cp $LINUX_KERNEL/arch/arm64/configs/${ORIGDEFCONFIG[${PI_VERSION}]} $LINUX_KERNEL/arch/arm64/configs/${DEFCONFIG[${PI_VERSION}]}
+  cat $LINUX_KERNEL_CONFIGS/docker_delta_defconfig >> $LINUX_KERNEL/arch/arm64/configs/${DEFCONFIG[${PI_VERSION}]}
 
   echo "### building kernel"
   mkdir -p $BUILD_RESULTS/$PI_VERSION
   echo $KERNEL_COMMIT > $BUILD_RESULTS/kernel-commit.txt
   if [ ! -z "${MENUCONFIG}" ]; then
-    cp $LINUX_KERNEL/arch/arm/configs/${DEFCONFIG[${PI_VERSION}]} $LINUX_KERNEL/.config
+    cp $LINUX_KERNEL/arch/arm64/configs/${DEFCONFIG[${PI_VERSION}]} $LINUX_KERNEL/.config
     echo "### starting menuconfig"
-    ARCH=arm CROSS_COMPILE=${CCPREFIX[$PI_VERSION]} make menuconfig
+    ARCH=arm64 CROSS_COMPILE=${CCPREFIX[$PI_VERSION]} make menuconfig
     echo "### saving new config back to $LINUX_KERNEL_CONFIGS/${PI_VERSION}_docker_kernel_config"
     cp $LINUX_KERNEL/.config $LINUX_KERNEL_CONFIGS/${PI_VERSION}_docker_kernel_config
-    ARCH=arm CROSS_COMPILE=${CCPREFIX[$PI_VERSION]} make savedefconfig
+    ARCH=arm64 CROSS_COMPILE=${CCPREFIX[$PI_VERSION]} make savedefconfig
     cp $LINUX_KERNEL/defconfig $LINUX_KERNEL_CONFIGS/${PI_VERSION}_docker_defconfig
     return
   fi
 
   echo "### building kernel and deb packages"
-  KBUILD_DEBARCH=armhf ARCH=arm CROSS_COMPILE=${CCPREFIX[${PI_VERSION}]} make ${DEFCONFIG[${PI_VERSION}]} deb-pkg -j$NUM_CPUS
+  ARCH=arm64 CROSS_COMPILE=${CCPREFIX[${PI_VERSION}]} make ${DEFCONFIG[${PI_VERSION}]} deb-pkg -j$NUM_CPUS
 
-  version=$(${LINUX_KERNEL}/scripts/mkknlimg --ddtk $LINUX_KERNEL/arch/arm/boot/Image $BUILD_RESULTS/$PI_VERSION/${IMAGE_NAME[${PI_VERSION}]} | head -1 | sed 's/Version: //')
+  version=$(${LINUX_KERNEL}/scripts/mkknlimg --ddtk $LINUX_KERNEL/arch/arm64/boot/Image $BUILD_RESULTS/$PI_VERSION/${IMAGE_NAME[${PI_VERSION}]} | head -1 | sed 's/Version: //')
   suffix=""
   if [ "$PI_VERSION" == "rpi2_3" ]; then
-    suffix="7"
+    suffix="8"
   fi
   echo "$version" > $RASPBERRY_FIRMWARE/extra/uname_string$suffix
 
   echo "### installing kernel modules"
   mkdir -p $BUILD_RESULTS/$PI_VERSION/modules
-  ARCH=arm CROSS_COMPILE=${CCPREFIX[${PI_VERSION}]} INSTALL_MOD_PATH=$BUILD_RESULTS/$PI_VERSION/modules make modules_install -j$NUM_CPUS
+  ARCH=arm64 CROSS_COMPILE=${CCPREFIX[${PI_VERSION}]} INSTALL_MOD_PATH=$BUILD_RESULTS/$PI_VERSION/modules make modules_install dtbs_install -j$NUM_CPUS
 
   echo "### Listing $BUILD_RESULTS/$PI_VERSION/modules"
   ls -l $BUILD_RESULTS/$PI_VERSION/modules
@@ -221,14 +213,14 @@ function create_kernel_deb_packages () {
     cp -R $BUILD_RESULTS/$pi_version/modules/lib/modules/* $NEW_KERNEL/modules
   done
   echo "copying dtb files to $NEW_KERNEL/boot"
-  cp $LINUX_KERNEL/arch/arm/boot/dts/bcm27*.dtb $NEW_KERNEL/boot
+  cp $LINUX_KERNEL/arch/arm64/boot/dts/bcm27*.dtb $NEW_KERNEL/boot
   # build debian packages
   cd $NEW_KERNEL
 
   (cd $NEW_KERNEL/debian ; ./gen_bootloader_postinst_preinst.sh)
 
   dch -v ${NEW_VERSION} --package raspberrypi-firmware 'add Hypriot custom kernel'
-  debuild --no-lintian -ePATH=${PATH}:$ARM_TOOLS/$X64_CROSS_COMPILE_CHAIN/bin -b -aarmhf -us -uc
+  debuild --no-lintian -b -aarm64 -us -uc -ePATH="${PATH}:/opt/aarch64/bin/"
   cp ../*.deb $BUILD_RESULTS
   if [[ ! -z $CIRCLE_ARTIFACTS ]]; then
     cp ../*.deb $CIRCLE_ARTIFACTS

@@ -6,7 +6,7 @@ if [ "$CIRCLE_TAG" != "" ]; then
   apt-get update
   apt-get install -y golang-go
   go get github.com/mlafeldt/pkgcloud/...
-  $HOME/go/bin/pkgcloud-push Hypriot/rpi/debian/stretch output/*/raspberrypi-kernel*.deb output/*/linux-libc-dev*.deb
+  $HOME/go/bin/pkgcloud-push Hypriot/rpi/debian/bullseye output/*/raspberrypi-kernel*.deb output/*/linux-libc-dev*.deb
 
   curl -sSL https://github.com/tcnksm/ghr/releases/download/v0.5.4/ghr_v0.5.4_linux_amd64.zip -o ghr.zip
   unzip ghr.zip
