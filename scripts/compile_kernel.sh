@@ -11,8 +11,9 @@ BUILD_USER=vagrant
 BUILD_GROUP=vagrant
 BUILD_ROOT=/var/kernel_build
 BUILD_CACHE=$BUILD_ROOT/cache
+KERNEL=kernel8
 LINUX_KERNEL=$BUILD_CACHE/linux-kernel
-LINUX_KERNEL_COMMIT=6f921e98008589258f97243fb6658d09750f0a2f # Linux 4.14.79 raspberrypi-kernel_1.20220331-1
+LINUX_KERNEL_COMMIT=6f921e98008589258f97243fb6658d09750f0a2f # Linux 5.15.32 raspberrypi-kernel_1.20220331-1
 # LINUX_KERNEL_COMMIT=36612d5d7a88672a3e7dd6cb458dbbbca0d75efe # Linux 4.14.79 raspberrypi-kernel_1.20181112-1
 # LINUX_KERNEL_COMMIT=675e29ff7124059cb3b8b56fd7ae0ea131196982 # Linux 4.14.70 raspberrypi-kernel_1.20180919-1
 # LINUX_KERNEL_COMMIT=f70eae405b5d75f7c41ea300b9f790656f99a203 # Linux 4.14.34
@@ -52,7 +53,7 @@ CCPREFIX["rpi2_3"]=aarch64-linux-gnu-
 
 declare -A ORIGDEFCONFIG
 #ORIGDEFCONFIG["rpi1"]=bcmrpi_defconfig
-ORIGDEFCONFIG["rpi2_3"]=bcmrpi3_defconfig
+ORIGDEFCONFIG["rpi2_3"]=bcm2711_defconfig
 
 declare -A DEFCONFIG
 #DEFCONFIG["rpi1"]=rpi1_docker_defconfig
@@ -156,7 +157,7 @@ create_kernel_for () {
   echo "### building kernel and deb packages"
   ARCH=arm64 CROSS_COMPILE=${CCPREFIX[${PI_VERSION}]} make ${DEFCONFIG[${PI_VERSION}]} deb-pkg -j$NUM_CPUS
 
-  version=$(${LINUX_KERNEL}/scripts/mkknlimg --ddtk $LINUX_KERNEL/arch/arm64/boot/Image $BUILD_RESULTS/$PI_VERSION/${IMAGE_NAME[${PI_VERSION}]} | head -1 | sed 's/Version: //')
+  version=$(/vagrant/scripts/mkknlimg --ddtk $LINUX_KERNEL/arch/arm64/boot/Image $BUILD_RESULTS/$PI_VERSION/${IMAGE_NAME[${PI_VERSION}]} | head -1 | sed 's/Version: //')
   suffix=""
   if [ "$PI_VERSION" == "rpi2_3" ]; then
     suffix="8"
@@ -165,7 +166,7 @@ create_kernel_for () {
 
   echo "### installing kernel modules"
   mkdir -p $BUILD_RESULTS/$PI_VERSION/modules
-  ARCH=arm64 CROSS_COMPILE=${CCPREFIX[${PI_VERSION}]} INSTALL_MOD_PATH=$BUILD_RESULTS/$PI_VERSION/modules make modules_install dtbs_install -j$NUM_CPUS
+  ARCH=arm64 CROSS_COMPILE=${CCPREFIX[${PI_VERSION}]} INSTALL_MOD_PATH=$BUILD_RESULTS/$PI_VERSION/modules make modules_install -j$NUM_CPUS
 
   echo "### Listing $BUILD_RESULTS/$PI_VERSION/modules"
   ls -l $BUILD_RESULTS/$PI_VERSION/modules
@@ -213,14 +214,14 @@ function create_kernel_deb_packages () {
     cp -R $BUILD_RESULTS/$pi_version/modules/lib/modules/* $NEW_KERNEL/modules
   done
   echo "copying dtb files to $NEW_KERNEL/boot"
-  cp $LINUX_KERNEL/arch/arm64/boot/dts/bcm27*.dtb $NEW_KERNEL/boot
+  cp $LINUX_KERNEL/arch/arm64/boot/dts/broadcom/bcm27*.dtb $NEW_KERNEL/boot
   # build debian packages
   cd $NEW_KERNEL
 
   (cd $NEW_KERNEL/debian ; ./gen_bootloader_postinst_preinst.sh)
 
-  dch -v ${NEW_VERSION} --package raspberrypi-firmware 'add Hypriot custom kernel'
-  debuild --no-lintian -b -aarm64 -us -uc -ePATH="${PATH}:/opt/aarch64/bin/"
+  dch --check-dirname-level=0 -v ${NEW_VERSION} --package raspberrypi-firmware 'add Hypriot custom kernel'
+  debuild --check-dirname-level=0 --no-lintian -b -aarm64 -us -uc -ePATH="${PATH}:/opt/aarch64/bin/"
   cp ../*.deb $BUILD_RESULTS
   if [[ ! -z $CIRCLE_ARTIFACTS ]]; then
     cp ../*.deb $CIRCLE_ARTIFACTS
