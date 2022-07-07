@@ -1,4 +1,4 @@
-# rpi-kernel [![Circle CI](https://circleci.com/gh/hypriot/rpi-kernel.svg?style=svg)](https://circleci.com/gh/hypriot/rpi-kernel)
+# rpi-kernel [![Circle CI](https://circleci.com/gh/drewcarlson/rpi-kernel.svg?style=svg)](https://circleci.com/gh/drewcarlson/rpi-kernel)
 
 Build a Raspberry Pi 0/1 and 2/3/3+ kernel with all kernel modules running Docker.
 

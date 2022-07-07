@@ -80,7 +80,6 @@ function clone_or_update_repo_for () {
   local repo_url=$1
   local repo_path=$2
   local repo_commit=$3
-  local extra=$4
 
   if [ ! -z "${repo_commit}" ]; then
     rm -rf $repo_path
@@ -92,16 +91,13 @@ function clone_or_update_repo_for () {
     popd
   else
     echo "Cloning $repo_path with commit $repo_commit"
-    git clone $repo_url $repo_path --depth 1 $extra
-    if [ ! -z "${repo_commit}" ]; then
-      cd $repo_path && git checkout -qf ${repo_commit}
-    fi
+    git clone --depth=1 $repo_url $repo_path
   fi
 }
 
 function setup_linux_kernel_sources () {
   echo "### Check if Raspberry Pi Linux Kernel repository at ${LINUX_KERNEL} is still up to date"
-  clone_or_update_repo_for 'https://github.com/raspberrypi/linux.git' $LINUX_KERNEL $LINUX_KERNEL_COMMIT "-b 1.20220331"
+  clone_or_update_repo_for 'https://github.com/raspberrypi/linux.git' $LINUX_KERNEL $LINUX_KERNEL_COMMIT
   echo "### Cleaning .version file for deb packages"
   rm -f $LINUX_KERNEL/.version
 }
@@ -220,8 +216,8 @@ function create_kernel_deb_packages () {
 
   (cd $NEW_KERNEL/debian ; ./gen_bootloader_postinst_preinst.sh)
 
-  dch --check-dirname-level=0 -v ${NEW_VERSION} --package raspberrypi-firmware 'add Hypriot custom kernel'
-  debuild --check-dirname-level=0 --no-lintian -b -aarm64 -us -uc -ePATH="${PATH}:/opt/aarch64/bin/"
+  dch --check-dirname-level=0 -b -v ${NEW_VERSION} --package raspberrypi-firmware 'add Hypriot custom kernel'
+  debuild --check-dirname-level=0 --no-lintian -b -aarm64 -us -uc -ePATH="${PATH}:/usr/aarch64-linux-gnu/bin/"
   cp ../*.deb $BUILD_RESULTS
   if [[ ! -z $CIRCLE_ARTIFACTS ]]; then
     cp ../*.deb $CIRCLE_ARTIFACTS
