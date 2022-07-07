@@ -91,7 +91,7 @@ function clone_or_update_repo_for () {
     popd
   else
     echo "Cloning $repo_path with commit $repo_commit"
-    git clone --depth=1 $repo_url $repo_path
+    git clone --depth=1 $repo_url $repo_path --recurse-submodules
   fi
 }
 
