@@ -91,7 +91,7 @@ function clone_or_update_repo_for () {
     popd
   else
     echo "Cloning $repo_path with commit $repo_commit"
-    git clone --depth=1 $repo_url $repo_path --recurse-submodules
+    git clone --depth=1 $repo_url $repo_path
   fi
 }
 
@@ -217,7 +217,7 @@ function create_kernel_deb_packages () {
   (cd $NEW_KERNEL/debian ; ./gen_bootloader_postinst_preinst.sh)
 
   dch --check-dirname-level=0 -b -v ${NEW_VERSION} --package raspberrypi-firmware 'add Hypriot custom kernel'
-  debuild --check-dirname-level=0 --no-lintian -b -aarm64 -us -uc -ePATH="${PATH}:/usr/aarch64-linux-gnu/bin/"
+  ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- debuild --check-dirname-level=0 --no-lintian -ePATH="${PATH}:/usr/aarch64-linux-gnu/bin/" -b -aarm64 -us -uc
   cp ../*.deb $BUILD_RESULTS
   if [[ ! -z $CIRCLE_ARTIFACTS ]]; then
     cp ../*.deb $CIRCLE_ARTIFACTS

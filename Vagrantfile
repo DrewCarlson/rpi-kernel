@@ -34,9 +34,9 @@ Vagrant.configure(2) do |config|
   config.vm.define "docker-raspbian" do |config|
     config.vm.hostname = "docker-raspbian"
     config.ssh.forward_agent = true
-    config.vm.provision "shell", path: "scripts/provision.sh", privileged: false
+    config.vm.provision "shell", path: "scripts/provision.sh", privileged: true
     config.vm.provider "virtualbox" do |vb, override|
-       override.vm.box = "ubuntu/xenial64"
+       override.vm.box = "ubuntu/bionic64"
        # find out on which host os we are running
        host = RbConfig::CONFIG['host_os']
        vb.customize ["modifyvm", :id, "--ioapic", "on"]
@@ -44,7 +44,7 @@ Vagrant.configure(2) do |config|
        vb.cpus = get_cpu_setting(host)
     end
     config.vm.provider "docker" do |docker|
-      docker.image = "tknerr/baseimage-ubuntu:16.04"
+      docker.image = "tknerr/baseimage-ubuntu:18.04"
       docker.has_ssh = true
       docker.remains_running = false
     end
